@@ -1,0 +1,578 @@
+lua_State {
+  preview (
+    #(
+      "thread top=", [$c.top-$c.base, i]
+    )
+  )
+  children (
+    #(
+      [raw members]: [$c,!],
+      globals: [$c.l_gt],
+      registry: [$c.l_G->l_registry],
+      stack size: [$c.top-$c.base, i],
+   stack:#array (
+        expr: $c.base[$i],
+        size: $c.top - $c.base,
+        base: 1
+      ),
+   callStack Size: $e.ci-$e.base_ci,
+   callStack:
+    #array (
+      expr: $e.ci[-$i],
+      size: $e.ci-$e.base_ci,
+    )
+    )
+  )
+}
+Node {
+  preview (
+    #( $c.i_key.tvk, " = ", $c.i_val )
+  )
+  children (
+    #(
+      key: $c.i_key.tvk,
+      val: $c.i_val,
+      #if( $c.i_key.nk.next != 0 ) (
+        #( next: $c.i_key.nk.next )
+      )
+    )
+  )
+}
+lua_TValue {
+  children (
+    #switch($c.tt)
+    #case 2 (             ; LUA_TLIGHTUSERDATA
+      ptr: #((const char*)($c.value.p))
+    )
+    #case 5 (               ; LUA_TTABLE
+      #(
+        [raw]: [$c,!],
+        array size: $c.value.gc->h.sizearray,
+        #array (
+          expr: $e.value.gc->h.metatable,
+          size: $e.value.gc->h.metatable != 0,
+        ): #( metatable: $e ),
+        #array (
+          expr: $c.value.gc->h.array[$i],
+          size: $c.value.gc->h.sizearray,
+          base: 1
+        ),
+        #array (
+          expr: #( $c.value.gc->h.node[$i], 2 ),
+          size: (1<<$c.value.gc->h.lsizenode),
+          base: 1
+        ): #( hash part: $e )
+      )
+    )
+    #case 6 (             ; LUA_TFUNCTION
+      #if ($c.value.gc->cl.c.isC) (
+        #(
+          env: $c.value.gc->cl.c.env,
+          #array (
+            expr: $e.value.gc->cl.c.upvalue[$i],
+            size: $e.value.gc->cl.c.nupvalues,
+          ): #( upvalues: $e )
+        )
+      ) #else (
+        #($c.value.gc->cl.l)
+      )
+    )
+    #case 7 (             ; LUA_TUSERDATA
+      #(
+        #array (
+          expr: $e.value.gc->u.uv.metatable,
+          size: $e.value.gc->u.uv.metatable != 0,
+        ): #( metatable: $e ),
+        env: $c.value.gc->u.uv.env,
+        ptr: #((const char*)((&$c.value.gc->u)+1)),
+        size: $c.value.gc->u.uv.len
+      )
+    )
+    #case 8 ( #($c.value.gc->th) )    ; LUA_TTHREAD
+  )
+  preview (
+    #switch($c.tt)
+    #case 0 ( "nil" )         ; LUA_TNIL
+    #case 1 (
+      #if ($c.value.b == 0) (
+        "false"
+      ) #else (
+        "true"
+      )
+    )
+    #case 2 (             ; LUA_TLIGHTUSERDATA
+      #($c.value.p, " lightuserdata") )
+    #case 3 (             ; LUA_TNUMBER
+      #("#", $c.value.n) )
+    #case 4  (             ; LUA_TRING
+     #( $c.value.gc->ts) )
+    #case 5 (   ; LUA_TTABLE
+      #( "table" )
+    )
+   ; #case 6 ( #($c.value.gc->cl) )     ; LUA_TFUNCTION
+    #case 6 (                ; LUA_TFUNCTION
+   #if ($c.value.gc->cl.c.isC) (
+    #($c.value.gc->cl)
+      ) #else (
+    #( [((const char *) (&($e.value.gc->cl.l.p->source->tsv)+1)),sb],"(" ,*($e.value.gc->cl.l.p->lineinfo),")" )
+      )
+  )
+    #case 7 ( #($c.value.gc->u) )   ; LUA_TUSERDATA
+    #case 8 ( #($c.value.gc->th) )    ; LUA_TTHREAD
+    #default ( "empty" )
+    )
+  )
+}
+Udata {
+  preview (
+    #( "userdata size=", $c.uv.len, " ptr=", #((void*)((&$c)+1)) )
+  )
+}
+CClosure {
+  preview (
+    $c.f
+  )
+}
+LClosure {
+  preview (
+  #([(const char *) (&($e.p->source->tsv)+1),sb] ,"(",*($e.p->lineinfo),")" )
+  )
+}
+Closure {
+  preview (
+    #if ($e.c.isC) ( #($e.c) )
+    #else ( #($e.value.gc->cl.l) )
+  )
+}
+Table {
+  children (
+      #(
+        [raw]: [$c,!],
+        [array size]: $c.sizearray,
+        #array (
+          expr: $e.metatable,
+          size: $e.metatable != 0,
+        ): #( metatable: $e ),
+        #array (
+          expr: $c.array[$i],
+          size: $c.sizearray,
+          base: 1
+        ),
+        #array (
+          expr: #( $c.node[$i], 2 ),
+          size: (1<<$c.lsizenode),
+          base: 1
+        ): #( key: $e )
+      )
+  )
+  preview (
+    #( "table" )
+  )
+}
+TString {
+  preview (
+    #("'", [(const char *) (&($e.tsv)+1),sb] )
+  )
+}
+CallInfo {
+ preview (
+  #( $e.func, ",",$e.func->value.gc->cl.l.p->lineinfo[$e.savedpc -$e.func->value.gc->cl.l.p->code-1] )
+ )
+}
+
+
+
+
+
+
+
+;------------------------------------------------------------------------------
+;  lua
+;------------------------------------------------------------------------------
+lua_State {
+  preview (
+    #(
+      "thread top=", [$c.top - $c.ci->u.l.base, i]
+    )
+  )
+  children (
+    #(
+          [raw members]: [$c,!],
+          curfunc: $c.ci->func,
+          curCI:$c.ci,
+          registry: [$c.l_G->l_registry],
+          stack size: $c.top - ($c.ci->func + 1),
+
+          #array (
+               expr: $c.top[-$i],
+               size: $c.top - ($c.ci->func + 1),
+               base: 1
+          ):#(stack: $e)
+
+          ;callStack Size: [$c.ci - $c.base_ci, i],
+          ;#array (
+          ;     expr: $c.ci[-$i],
+          ;     size: $c.ci-$c.base_ci,
+          ;):#(callStack:$e)
+
+    )
+  )
+}
+
+Node {
+  preview (
+    #( $c.i_key.tvk, " = ", $c.i_val )
+  )
+  children (
+    #(
+      key: $c.i_key.tvk,
+      val: $c.i_val,
+      #if( $c.i_key.nk.next != 0 ) (
+        #( next: $c.i_key.nk.next )
+      )
+    )
+  )
+}
+
+Node {
+  preview (
+    #( $c.i_key.tvk, " = ", $c.i_val )
+  )
+  children (
+    #(
+      key: $c.i_key.tvk,
+      val: $c.i_val,
+      #if( $c.i_key.nk.next != 0 ) (
+        #( next: $c.i_key.nk.next )
+      )
+    )
+  )
+}
+
+lua_TValue {
+     children (
+          #if(($c.u.i.tt__ & 0x7FFFFF00) != 0x7FF7A500) (
+               #(
+                    number: $c.u.d__
+               )
+          )
+          #else(
+               #if(($c.u.i.tt__ & 0xFF) == 0) ;LUA_TNIL
+               (
+                    #(
+                         LUA_TNIL:[$c.u.i.tt__ & 0x7FFFFF00, X]
+                    )
+               )
+               #elif(($c.u.i.tt__ & 0xFF) == 1) ;LUA_TBOOLEAN
+               (
+                    #(
+                         LUA_TBOOLEAN:$c.u.i.v__.b
+                    )
+               )
+               #elif(($c.u.i.tt__ & 0xFF) == 2) ;LUA_TLIGHTUSERDATA
+               (
+                    #(
+                         LUA_TLIGHTUSERDATA:#((const char*)($c.u.i.v__.p))
+                    )
+               )
+               #elif(($c.u.i.tt__ & 0x0F) == 4) ;LUA_TSTRING
+               (
+                         ;#define ttisshrstring(o)     checktag((o), ctb(LUA_TSHRSTR))
+                         ;#define ttislngstring(o)     checktag((o), ctb(LUA_TLNGSTR))
+                    #(
+                         LUA_TSTRING:#($c.u.i.v__.gc->ts)
+                    )
+               )
+
+               ;#define ttistable(o)          checktag((o), ctb(LUA_TTABLE))
+               #elif(($c.u.i.tt__ & 0xFF) == (5|1<<6))
+               (
+                    #(
+                         LUA_TTABLE[raw]: [$c.u.i.v__.gc->h,!],
+                         array size: $c.u.i.v__.gc->h.sizearray,
+                         lsizenode: 1<<$c.u.i.v__.gc->h.lsizenode,
+                         #array (
+                           expr: $c.u.i.v__.gc->h.metatable,
+                           size: $c.u.i.v__.gc->h.metatable != 0,
+                         ): #( metatable: $e ),
+                         #array (
+                           expr: $c.u.i.v__.gc->h.array[$i],
+                           size: $c.u.i.v__.gc->h.sizearray,
+                           base: 1
+                         ): #( array part: $e ),
+                         #array (
+                           expr: #( $c.u.i.v__.gc->h.node[$i], 2 ),
+                           size: (1<<$c.u.i.v__.gc->h.lsizenode),
+                           base: 1
+                         ): #( hash part: $e )
+                    )
+
+               )
+               ;#define ttisfunction(o)          checktype(o, LUA_TFUNCTION)
+               #elif(($c.u.i.tt__ & 0x0F) == 6)
+               (
+                    ;#define ttisclosure(o)          ((rttype(o) & 0x1F) == LUA_TFUNCTION)
+                    #if(($c.u.i.tt__ & 0x1F) == 6)
+                    (
+                         ;#define ttisCclosure(o)          checktag((o), ctb(LUA_TCCL))
+                         if(($c.u.i.tt__ & 0xFF) == ((6|(2<<4))|1<<6))
+                         (
+                                #(
+                                   cfunc_env: $c.u.i.v__.gc->cl.c.env,
+                                   #array (
+                                      expr: $c.u.i.v__.gc->cl.c.upvalue[$i],
+                                      size: $c.u.i.v__.gc->cl.c.nupvalues,
+                                   ): #( upvalues: $e )
+                                )
+                         )
+
+                         ;#define ttisLclosure(o)          checktag((o), ctb(LUA_TLCL))
+                         elif(($c.u.i.tt__ & 0xFF) == ((6|(0<<4))|1<<6))
+                         (
+                                #(LUA_TLCF:$c.u.i.v__.gc->cl.l)
+                         )
+                    )
+                    ;#define ttislcf(o)          checktag((o), LUA_TLCF)
+                    #elif(($c.u.i.tt__ & 0xFF) == (6|(1<<4)))
+                    (
+                         #(LUA_TLCF:$c.u.i.v__.f)
+                    )
+                    #else
+                    (
+                         #(oo:$c)
+                    )
+               )
+
+               ;#define ttisuserdata(o)          checktag((o), ctb(LUA_TUSERDATA))
+               #elif(($c.u.i.tt__ & 0xFF) == (8|1<<6))
+               (
+                    #(
+                         #array (
+                           expr: $e.value.gc->u.uv.metatable,
+                           size: $e.value.gc->u.uv.metatable != 0,
+                         ): #( metatable: $e ),
+                         env: $c.value.gc->u.uv.env,
+                         ptr: #((const char*)((&$c.value.gc->u)+1)),
+                         size: $c.value.gc->u.uv.len
+                    )
+               )
+               ;#define ttisthread(o)          checktag((o), ctb(LUA_TTHREAD))
+               #elif(($c.u.i.tt__ & 0xFF) == (7|1<<6))
+               (
+                    #(
+                         LUA_TTHREAD:$c.value.gc->th
+                    )
+               )
+               ;#define ttisdeadkey(o)          checktag((o), LUA_TDEADKEY)
+               #elif(($c.u.i.tt__ & 0xFF) == 11)
+               (
+                    #(
+                         LUA_TDEADKEY:[$c.u.i.tt__ & 0x7FFFFF00, X]
+                    )
+               )
+               #else
+               (
+                    #(
+                         other:[$c.u.i.tt__ & 0x7FFFFF00, X]
+                    )
+               )
+          )
+     )
+     preview (
+          #if(($c.u.i.tt__ & 0x7FFFFF00) != 0x7FF7A500) (
+               #(
+                    "number", $c.u.d__
+               )
+          )
+          #else(
+               #if(($c.u.i.tt__ & 0xFF) == 0) ;LUA_TNIL
+               (
+                    #(
+                         "LUA_TNIL"
+                    )
+               )
+               #elif(($c.u.i.tt__ & 0xFF) == 1) ;LUA_TBOOLEAN
+               (
+                    #(
+                         "LUA_TBOOLEAN", $c.u.i.v__.b
+                    )
+               )
+               #elif(($c.u.i.tt__ & 0xFF) == 2) ;LUA_TLIGHTUSERDATA
+               (
+                    #(
+                         "LUA_TLIGHTUSERDATA", #((const char*)($c.u.i.v__.p))
+                    )
+               )
+               #elif(($c.u.i.tt__ & 0x0F) == 4) ;LUA_TSTRING
+               (
+                    ;#define ttisshrstring(o)     checktag((o), ctb(LUA_TSHRSTR))
+                    ;#define ttislngstring(o)     checktag((o), ctb(LUA_TLNGSTR))
+                    #(
+                         #($c.u.i.v__.gc->ts)
+                    )
+               )
+
+               ;#define ttistable(o)          checktag((o), ctb(LUA_TTABLE))
+               #elif(($c.u.i.tt__ & 0xFF) == (5|1<<6))
+               (
+                    #($c.u.i.v__.gc->h)
+
+               )
+               ;#define ttisfunction(o)          checktype(o, LUA_TFUNCTION)
+               #elif(($c.u.i.tt__ & 0x0F) == 6)
+               (
+                    ;#define ttisclosure(o)          ((rttype(o) & 0x1F) == LUA_TFUNCTION)
+                    #if(($c.u.i.tt__ & 0x1F) == 6)
+                    (
+                         ;#define ttisCclosure(o)          checktag((o), ctb(LUA_TCCL))
+                         if(($c.u.i.tt__ & 0xFF) == ((6|(2<<4))|1<<6))
+                         (
+                                #(
+                                   cfunc_env: $c.u.i.v__.gc->cl.c.env,
+                                   #array (
+                                      expr: $c.u.i.v__.gc->cl.c.upvalue[$i],
+                                      size: $c.u.i.v__.gc->cl.c.nupvalues,
+                                   ): #( upvalues: $e )
+                                )
+                         )
+
+                         ;#define ttisLclosure(o)          checktag((o), ctb(LUA_TLCL))
+                         elif(($c.u.i.tt__ & 0xFF) == ((6|(0<<4))|1<<6))
+                         (
+                                #("LUA_TLCF", $c.u.i.v__.gc->cl.l)
+                         )
+                    )
+                    ;#define ttislcf(o)          checktag((o), LUA_TLCF)
+                    #elif(($c.u.i.tt__ & 0xFF) == (6|(1<<4)))
+                    (
+                         #("LUA_TLCF", $c.u.i.v__.f)
+                    )
+                    #else
+                    (
+                         #("other function")
+                    )
+               )
+
+               ;#define ttisuserdata(o)          checktag((o), ctb(LUA_TUSERDATA))
+               #elif(($c.u.i.tt__ & 0xFF) == (8|1<<6))
+               (
+                    #("LUA_TUSERDATA",$c.u.i.v__.gc->u)
+               )
+               ;#define ttisthread(o)          checktag((o), ctb(LUA_TTHREAD))
+               #elif(($c.u.i.tt__ & 0xFF) == (7|1<<6))
+               (
+                    #(
+                         "LUA_TTHREAD", $c.value.gc->th
+                    )
+               )
+               ;#define ttisdeadkey(o)          checktag((o), LUA_TDEADKEY)
+               #elif(($c.u.i.tt__ & 0xFF) == 11)
+               (
+                    #(
+                         "LUA_TDEADKEY"
+                    )
+               )
+               #else
+               (
+                    #(
+                         "other table"
+                    )
+               )
+          )
+     )
+}
+
+Udata {
+  preview (
+    #( "userdata size=", $c.uv.len, " ptr=", #((void*)((&$c)+1)) )
+  )
+}
+
+CClosure {
+  preview (
+    $c.f
+  )
+}
+
+LClosure {
+  preview (
+  #([(const char *) (&($e.p->source->tsv)+1),sb] ,"(",*($e.p->lineinfo),")" )
+  )
+}
+Closure {
+  preview (
+    #if ($e.c.isC) ( #($e.c) )
+    #else ( #($e.value.gc->cl.l) )
+  )
+}
+
+Table {
+  children (
+      #(
+        [raw]: [$c,!],
+        [array size]: $c.sizearray,
+        #array (
+          expr: $e.metatable,
+          size: $e.metatable != 0,
+        ): #( metatable: $e ),
+        #array (
+          expr: $c.array[$i],
+          size: $c.sizearray,
+          base: 1
+        ),
+        #array (
+          expr: #( $c.node[$i], 2 ),
+          size: (1<<$c.lsizenode),
+          base: 1
+        ): #( key: $e )
+      )
+  )
+  preview (
+    #( "table" )
+  )
+}
+
+TString {
+  preview (
+    #("'", [(const char *) (&($e.tsv)+1),sb], "'" )
+  )
+}
+
+CallInfo {
+     preview (
+       #($e.func, ",",$e.func->u.i.v__.gc->cl.l.p->lineinfo[$e.u.l.savedpc - $e.func->u.i.v__.gc->cl.l.p->code-1] )
+     )
+     children(
+          #if(($e.func->u.i.tt__ & 0xFF) == ((6|(2<<4))|1<<6));LUA_TCCL
+          (
+               #(
+                    LUA_TCCL[raw]: [$c,!],
+                    func:$e.func
+               )
+          )
+
+          #elif(($e.func->u.i.tt__ & 0xFF) == ((6|(0<<4))|1<<6));LUA_TLCL
+          (
+               #(
+                    LUA_TLCL[raw]: [$c,!],
+                    stack size: [$c.top - $c.u.l.base, i],
+                    #array (
+                         expr: $c.u.l.base[$i],
+                         size: $c.top - $c.u.l.base,
+                         base: 1
+                    ):#(stack:$e)
+               )
+          )
+
+          #elif(($e.func->u.i.tt__ & 0xFF) == (6|(1<<4)));LUA_TLCF
+          (
+               #(
+                    LUA_TLCF[raw]: [$c,!],
+                    func:$e.func
+               )
+          )
+     )
+}
+
+[hresult]
+;1234=my custom error code
